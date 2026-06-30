@@ -1,0 +1,231 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"] 
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+  TECHNICIAN
+}
+
+enum AssetStatus {
+  IN_STOCK
+  ASSIGNED
+  UNDER_REPAIR
+  DAMAGED
+  LOST
+  DISPOSED
+}
+
+enum AuditStatus {
+  FOUND
+  NOT_FOUND
+  WRONG_LOCATION
+  DAMAGED
+}
+
+enum RepairStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  WARNING
+}
+
+model User {
+  id            String            @id @default(cuid())
+  name          String
+  email         String            @unique
+  passwordHash  String
+  role          Role              @default(USER)
+  departmentId  String?
+  department    Department?       @relation(fields: [departmentId], references: [id])
+  assignedAssets AssetAssignment[]
+  repairTickets   AssetRepair[]     @relation("TicketCreator")
+  assignedRepairs AssetRepair[]     @relation("AssignedTechnician")
+  logs          AssetLog[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  allowedModules String[]  @default(["DASHBOARD"])
+  @@index([email])
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  users     User[]
+  assets    Asset[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AssetCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  assets    Asset[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AssetLocation {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  assets    Asset[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Asset {
+  id              String            @id @default(cuid())
+  assetCode       String            @unique
+  name            String
+  model           String
+  serialNumber    String            @unique
+  manufacturer    String
+  purchaseDate    DateTime?
+  warrantyEndDate DateTime?
+  price           Decimal?          @db.Decimal(10, 2)
+  status          AssetStatus       @default(IN_STOCK)
+  qrCodeUrl       String?
+  imageUrl        String?
+  departmentId    String?
+  department      Department?       @relation(fields: [departmentId], references: [id])
+  categoryId      String
+  category        AssetCategory     @relation(fields: [categoryId], references: [id])
+  locationId      String?
+  location        AssetLocation?    @relation(fields: [locationId], references: [id])
+  assignedUserId  String?
+  assignments     AssetAssignment[]
+  repairs         AssetRepair[]
+  inspections     AssetInspection[]
+  logs            AssetLog[]
+  attachments     AssetAttachment[]
+  monitoring      AssetMonitoring?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([assetCode, serialNumber])
+}
+
+model AssetAssignment {
+  id           String    @id @default(cuid())
+  assetId      String
+  asset        Asset     @relation(fields: [assetId], references: [id])
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  assignedDate DateTime  @default(now())
+  returnDate   DateTime?
+  remark       String?
+  pdfReportUrl String?
+  createdAt    DateTime  @default(now())
+}
+
+model AssetRepair {
+  id           String       @id @default(cuid())
+  ticketNumber String       @unique
+  assetId      String
+  asset        Asset        @relation(fields: [assetId], references: [id])
+  issueType    String
+  priority     String
+  description  String
+  status       RepairStatus @default(OPEN)
+  cost         Decimal?     @db.Decimal(10, 2)
+  creatorId    String
+  creator      User         @relation("TicketCreator", fields: [creatorId], references: [id])
+  technicianId String?
+  technician   User?        @relation("AssignedTechnician", fields: [technicianId], references: [id])
+  createdAt    DateTime     @default(now())
+  completedAt  DateTime?
+  hasRecall    Boolean      @default(false)
+  assignmentId String?  
+}
+
+model AssetInspection {
+  id          String       @id @default(cuid())
+  sessionId   String
+  session     AuditSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  assetId     String
+  asset       Asset        @relation(fields: [assetId], references: [id])
+  status      AuditStatus
+  notes       String?
+  scannedAt   DateTime     @default(now())
+
+  @@index([sessionId, scannedAt])
+}
+
+model AuditSession {
+  id          String   @id @default(cuid())
+  title       String   // VD: "Kiểm kê thiết bị IT - Quý 3/2026"
+  status      String   @default("OPEN") // OPEN (Đang mở) hoặc CLOSED (Đã chốt)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Liên kết 1-nhiều với các lượt quét
+  inspections AssetInspection[]
+}
+
+model AssetLog {
+  id        String   @id @default(cuid())
+  assetId   String
+  asset     Asset    @relation(fields: [assetId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+model AssetAttachment {
+  id        String   @id @default(cuid())
+  assetId   String
+  asset     Asset    @relation(fields: [assetId], references: [id])
+  fileUrl   String
+  fileName  String
+  createdAt DateTime @default(now())
+}
+
+model AssetMonitoring {
+  id             String       @id @default(cuid())
+  assetId        String       @unique
+  asset          Asset        @relation(fields: [assetId], references: [id])
+  lastOnlineTime DateTime     @default(now())
+  ipAddress      String?
+  macAddress     String?
+  deviceVersion  String?
+  batteryLevel   Int?
+  deviceStatus   DeviceStatus @default(OFFLINE)
+
+  @@index([lastOnlineTime])
+}
+
+model SystemConfig {
+  id              String  @id @default("GLOBAL")
+  assetPrefix     String  @default("AST")
+  alertThreshold  Int     @default(30)
+  allowUserReport Boolean @default(true)
+  grafanaUrl      String  @default("")
+}
+
+model FormTemplate {
+  id              String   @id // Cố định các mã: "HANDOVER", "RECALL", "MAINTENANCE"
+  name            String   // Tên hiển thị quản lý (VD: Mẫu biên bản bàn giao)
+  title           String   // Tiêu đề in ra (VD: BIÊN BẢN BÀN GIAO TÀI SẢN)
+  companyName     String   @default("CÔNG TY TNHH DAEHA CABLE VINA")
+  subHeader       String   // Căn cứ vào quy định...
+  partyALabel     String   // Nhãn bên A (VD: Bên giao (Phòng IT))
+  partyBLabel     String   // Nhãn bên B (VD: Bên nhận)
+  legalTerms      String   // Điều khoản pháp lý cuối biên bản
+  footerText      String   // Chữ mờ dưới chân trang
+  updatedAt       DateTime @updatedAt
+}

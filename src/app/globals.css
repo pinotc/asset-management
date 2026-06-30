@@ -1,26 +1,44 @@
+/* src/app/globals.css */
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@theme {
+  --color-factory-bg: #F8F9FA;
+  --color-factory-border: #E0E4E8;
+  --color-samsung: #1428A0;
+  --color-samsung-light: #E5E9FC;
+  --color-samsung-dark: #0C1966;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-factory-bg);
+  color: #111827; /* text-gray-900 */
+}
+
+/* src/app/globals.css */
+
+@media print {
+  /* Ẩn mọi thứ trên trang */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Chỉ hiển thị khu vực có id="print-area" và các phần tử con của nó */
+  #print-area, #print-area * {
+    visibility: visible;
+  }
+  
+  /* Căn chỉnh khu vực in lấp đầy khổ giấy */
+  #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Ẩn header/footer mặc định của trình duyệt (URL, ngày tháng) */
+  @page {
+    margin: 0.5cm;
+  }
 }
