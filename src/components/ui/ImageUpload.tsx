@@ -39,7 +39,7 @@ export default function ImageUpload({ value, onChange, onRemove }: ImageUploadPr
       {/* Nút Upload / Mở Camera */}
       <CldUploadWidget
         uploadPreset="mes_assets"
-        onUploadStart={() => setIsUploading(true)}
+        onQueuesStart={() => setIsUploading(true)}
         onSuccess={onUpload}
         options={{ maxFiles: 1, sources: ["local", "camera"], resourceType: "image" }}
         >
@@ -49,7 +49,7 @@ export default function ImageUpload({ value, onChange, onRemove }: ImageUploadPr
                 type="button"
                 disabled={isUploading}
                 onClick={() => open()}
-                className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-dashed border-[#1428A0] text-[#1428A0] rounded-md hover:bg-blue-50 transition-colors w-full sm:w-auto"
+                className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-dashed border-#1428A0 text-#1428A0 rounded-md hover:bg-blue-50 transition-colors w-full sm:w-auto"
             >
                 {/* ... */}
             </button>
