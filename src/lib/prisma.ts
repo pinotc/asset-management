@@ -1,35 +1,34 @@
 // src/lib/prisma.ts
-import { PrismaClient } from '@prisma/client'
-import { Pool, neonConfig } from '@neondatabase/serverless'
-import { PrismaNeon } from '@prisma/adapter-neon'
-import ws from 'ws'
 
-// Bắt buộc cho môi trường Node.js khi dùng Neon
-neonConfig.webSocketConstructor = ws
+import { PrismaClient } from "@prisma/client";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { PrismaNeon } from "@prisma/adapter-neon";
+import ws from "ws";
 
-const prismaClientSingleton = () => {
-  // 1. Đọc từ biến môi trường
-  let connectionString = process.env.DATABASE_URL;
+// Cần cho Neon trên Node.js
+neonConfig.webSocketConstructor = ws;
 
-  // 2. Chốt chặn an toàn: Dán trực tiếp URL của bạn vào đây để phòng hờ Windows kẹt Cache
-  const fallbackUrl = "postgresql://neondb_owner:npg_BeuDA5dKJ7oq@ep-morning-sound-aog9c24y-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=requires"; 
-  
-  if (!connectionString || connectionString.trim() === "") {
-    console.warn("⚠️ Không đọc được process.env.DATABASE_URL, đang sử dụng Fallback URL...");
-    connectionString = fallbackUrl;
-  }
+const globalForPrisma = globalThis as {
+  prisma?: PrismaClient;
+};
 
-  // 3. Kết nối thông qua Neon Serverless
-  const pool = new Pool({ connectionString })
-  const adapter = new PrismaNeon(pool as any)
+export const prisma =
+  globalForPrisma.prisma ??
+  (() => {
+    const connectionString = process.env.DATABASE_URL;
 
-  return new PrismaClient({ adapter })
+    if (!connectionString) {
+      throw new Error("DATABASE_URL is not defined.");
+    }
+
+    const pool = new Pool({ connectionString });
+    const adapter = new PrismaNeon(pool);
+
+    return new PrismaClient({
+      adapter,
+    });
+  })();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
 }
-
-declare global {
-  var prismaGlobal: undefined | ReturnType<typeof prismaClientSingleton>
-}
-
-export const prisma = globalThis.prismaGlobal ?? prismaClientSingleton()
-
-if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma
