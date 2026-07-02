@@ -60,6 +60,7 @@ export default async function ReportsPage() {
       inStock: statusCount.IN_STOCK,
       assigned: statusCount.ASSIGNED,
       repairing: statusCount.UNDER_REPAIR + statusCount.DAMAGED,
+      lost: statusCount.LOST, // ĐÃ BỔ SUNG TRƯỜNG NÀY ĐỂ FIX LỖI TYPE
     },
     statusDistribution: statusCount,
     categoryDistribution: categories.map(c => ({ name: c.name, count: c._count.assets })),
