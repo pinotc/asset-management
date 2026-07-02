@@ -31,15 +31,15 @@ export async function closeAuditSession(sessionId: string) {
   return { success: true };
 }
 
-// 3. Hàm ghi nhận quét (Đã đồng bộ tự động thu hồi và chốt log trách nhiệm)
+// 3. Hàm ghi nhận quét (Đã tích hợp quy tắc nghiệp vụ tự động)
 export async function submitAuditScan(
   assetCode: string, 
   sessionId: string, 
   status: AuditStatus, 
-  notes?: string
+  notes?: string,
+  locationId?: string // Bổ sung tham số locationId cho case WRONG_LOCATION
 ) {
   try {
-    // Lấy thông tin tài khoản đang thực hiện thao tác kiểm kê
     const session = await getServerSession(authOptions);
     const currentUserId = session?.user?.id || "system";
 
@@ -63,61 +63,102 @@ export async function submitAuditScan(
         data: { sessionId, assetId: asset.id, status, notes },
       });
 
-      // 2. Xử lý đồng bộ trạng thái vòng đời thiết bị
-      if (status === "DAMAGED" || status === "NOT_FOUND") {
-        const newStatus = status === "DAMAGED" ? "DAMAGED" : "LOST";
-
-        // KỊCH BẢN ĐẶC BIỆT: Nếu báo MẤT TÍCH (NOT_FOUND) -> Chốt trách nhiệm bàn giao
-        if (status === "NOT_FOUND") {
-          // Tìm các phiếu mượn/cấp phát của thiết bị này đang treo (returnDate = null)
-          const activeAssignments = await tx.assetAssignment.findMany({
-            where: { assetId: asset.id, returnDate: null }
-          });
-
-          // Tiến hành đóng và chốt đóng tự động toàn bộ phiếu cấp phát
-          if (activeAssignments.length > 0) {
-            await tx.assetAssignment.updateMany({
-              where: { assetId: asset.id, returnDate: null },
-              data: {
-                returnDate: new Date(),
-                remark: `Hệ thống tự động đóng phiếu: Phát hiện mất tích (NOT_FOUND) tại đợt kiểm kê [${targetSession.title}]`
-              }
-            });
-          }
-
-          // Cập nhật trạng thái máy thành LOST và gỡ liên kết người giữ trực tiếp trên bảng Asset
-          await tx.asset.update({
-            where: { id: asset.id },
-            data: { 
-              status: newStatus as any,
-              assignedUserId: null 
-            },
-          });
-        } else {
-          // Nếu báo HỎNG (DAMAGED), giữ nguyên thông tin cấp phát (nếu có) nhưng chuyển trạng thái tài sản
-          await tx.asset.update({
-            where: { id: asset.id },
-            data: { status: newStatus as any },
-          });
-        }
-
-        // 3. Ghi Sổ cái Nhật ký hệ thống (AssetLog) chốt vết sự cố
-        await tx.assetLog.create({
-          data: {
-            assetId: asset.id,
-            userId: currentUserId,
-            action: "STATUS_CHANGED",
-            details: `Phát hiện bất thường qua kiểm kê [${targetSession.title}] - Tình trạng: ${status}.${status === "NOT_FOUND" ? " Hệ thống đã thu hồi tự động các phiếu cấp phát đang mở." : ""}`,
-          }
-        });
-      } else {
-        // Ghi nhận lịch sử kiểm kê thông thường (FOUND hoặc WRONG_LOCATION) vào Sổ cái Log
+      // 2. Xử lý nghiệp vụ theo từng loại Status
+      if (status === "FOUND") {
+        // Tài sản bình thường, ghi Log
         await tx.assetLog.create({
           data: {
             assetId: asset.id,
             userId: currentUserId,
             action: "AUDIT_SCANNED",
-            details: `Kiểm kê đợt [${targetSession.title}] - Kết quả: ${status}. Ghi chú: ${notes || "Không có"}`,
+            details: `Kiểm kê ĐẠT [${targetSession.title}]. Ghi chú: ${notes || "Không có"}`,
+          }
+        });
+      } 
+      
+      else if (status === "WRONG_LOCATION") {
+        // Tài sản sai vị trí, tự động cập nhật vị trí mới nếu có truyền vào
+        if (locationId) {
+          await tx.asset.update({
+            where: { id: asset.id },
+            data: { locationId }
+          });
+        }
+        
+        await tx.assetLog.create({
+          data: {
+            assetId: asset.id,
+            userId: currentUserId,
+            action: "LOCATION_CHANGED",
+            details: `Phát hiện sai vị trí qua kiểm kê [${targetSession.title}]. Đã cập nhật lại vị trí đúng. Ghi chú: ${notes || "Không có"}`,
+          }
+        });
+      } 
+      
+      else if (status === "DAMAGED") {
+        // Tài sản hư hỏng vật lý
+        await tx.asset.update({
+          where: { id: asset.id },
+          data: { status: "DAMAGED" },
+        });
+
+        // TỰ ĐỘNG TẠO PHIẾU SỬA CHỮA
+        const ticketNumber = `REP-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}`;
+        await tx.assetRepair.create({
+          data: {
+            ticketNumber,
+            assetId: asset.id,
+            creatorId: currentUserId,
+            description: `[TỰ ĐỘNG TẠO TỪ KIỂM KÊ - ${targetSession.title}]: Báo hỏng thiết bị. Lý do: ${notes || "Phát hiện hư hỏng vật lý."}`,
+            status: "OPEN",
+            issueType: "HARDWARE",
+            priority: "HIGH", // Đặt mức ưu tiên cao vì phát hiện khi audit
+          }
+        });
+
+        await tx.assetLog.create({
+          data: {
+            assetId: asset.id,
+            userId: currentUserId,
+            action: "STATUS_CHANGED",
+            details: `Phát hiện hư hỏng qua kiểm kê [${targetSession.title}]. Hệ thống tự động tạo phiếu sửa chữa [${ticketNumber}].`,
+          }
+        });
+      } 
+      
+      else if (status === "NOT_FOUND") {
+        // KỊCH BẢN MẤT TÀI SẢN (LOST)
+        const activeAssignments = await tx.assetAssignment.findMany({
+          where: { assetId: asset.id, returnDate: null }
+        });
+
+        // Tự động đóng phiếu cấp phát
+        if (activeAssignments.length > 0) {
+          await tx.assetAssignment.updateMany({
+            where: { assetId: asset.id, returnDate: null },
+            data: {
+              returnDate: new Date(),
+              remark: `Hệ thống tự động đóng phiếu: Báo MẤT (NOT_FOUND) tại đợt kiểm kê [${targetSession.title}]`
+            }
+          });
+        }
+
+        // Cập nhật trạng thái máy thành LOST
+        await tx.asset.update({
+          where: { id: asset.id },
+          data: { 
+            status: "LOST",
+            assignedUserId: null 
+          },
+        });
+
+        // Ghi Sổ cái Nhật ký hệ thống (Làm cơ sở query cho Lost Asset Report)
+        await tx.assetLog.create({
+          data: {
+            assetId: asset.id,
+            userId: currentUserId,
+            action: "ASSET_LOST",
+            details: `Báo MẤT TÀI SẢN qua kiểm kê [${targetSession.title}]. Hệ thống đã thu hồi tự động và đưa vào danh sách Báo cáo mất tài sản. Lý do: ${notes || "Không có"}`,
           }
         });
       }
@@ -125,11 +166,13 @@ export async function submitAuditScan(
       return { inspection, assetName: asset.name };
     });
 
-    // Làm mới cache dữ liệu toàn diện trên các view liên quan
+    // Làm mới cache toàn diện
     revalidatePath("/audit");
     revalidatePath("/assignments");
     revalidatePath("/recalls");
     revalidatePath("/assets");
+    revalidatePath("/repairs");
+    revalidatePath("/documents"); // Refresh module documents để nhận báo cáo mất
     revalidatePath("/");
 
     return { success: true, assetName: result.assetName };

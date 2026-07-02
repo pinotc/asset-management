@@ -2,13 +2,13 @@
 "use client";
 
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, Monitor, ArrowRightLeft, History,
   Undo2, ClipboardCheck, Wrench, Activity, Tags,
   MapPin, ShieldCheck, FileText, BarChart3,
-  Users, Building2, Settings
+  Users, Building2, Settings, LogOut
 } from "lucide-react";
 
 // ============================================================================
@@ -147,20 +147,30 @@ export default function Sidebar() {
         })}
       </nav>
 
+      {/* KHU VỰC HIỂN THỊ PROFILE & NÚT ĐĂNG XUẤT */}
       <div className="p-4 border-t border-factory-border shrink-0 bg-gray-50/50">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-samsung text-white flex items-center justify-center font-bold text-sm shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-samsung text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
             {initial}
           </div>
           <div className="text-sm overflow-hidden flex-1">
             <p className="font-bold text-gray-800 truncate" title={userName}>{userName}</p>
             <p className="text-xs text-gray-500 truncate font-medium">
-              {role === "ADMIN" ? "Quản trị viên (Admin)" : 
+              {role === "ADMIN" ? "Quản trị viên" : 
                role === "TECHNICIAN" ? "Kỹ thuật viên" : 
-               role === "MANAGER" ? "Quản lý" : 
+               role === "MANAGER" ? "Quản lý / Tổ trưởng" : 
                role === "USER" ? "Nhân viên" : "Khách"}
             </p>
           </div>
+          
+          {/* NÚT ĐĂNG XUẤT */}
+          <button 
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+            title="Đăng xuất"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
         </div>
       </div>
     </aside>

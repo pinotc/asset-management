@@ -24,7 +24,8 @@ export default async function PrintProtocolPage({ params }: PrintPageProps) {
 
   // 2. LẤY DỮ LIỆU TỪ HÀM ĐÃ CÓ SẴN 
   const response = await getDocumentDataCenter();
-  const allData = response.data || { handovers: [], recalls: [], repairs: [] };
+  // Đã bổ sung lostAssets vào giá trị mặc định để tránh lỗi undefined
+  const allData = response.data || { handovers: [], recalls: [], repairs: [], lostAssets: [] };
 
   let recordData = null;
 
@@ -35,16 +36,20 @@ export default async function PrintProtocolPage({ params }: PrintPageProps) {
     recordData = allData.recalls.find((item: any) => item.id === id);
   } else if (typeStr === "repair" || typeStr === "maintenance") {
     recordData = allData.repairs.find((item: any) => item.id === id);
+  } else if (typeStr === "lost") {
+    // Nhánh logic mới để lấy dữ liệu Biên bản báo mất từ AssetLog
+    recordData = allData.lostAssets.find((item: any) => item.id === id);
   }
 
   // 3. FIX 404: NẾU KHÔNG TÌM THẤY BẢN GHI (DO DÙNG ID GIẢ LẬP), TẠO DỮ LIỆU MẪU ĐỂ XEM TRƯỚC
   if (!recordData) {
     // Nếu là ID thật từ DB mà không có thì mới trả về 404, còn ID giả lập thì cho phép render
-    if (id.startsWith("MOCK") || id.startsWith("RECALL")) {
+    if (id.startsWith("MOCK") || id.startsWith("RECALL") || id.startsWith("LOST")) {
       recordData = {
         id: id,
         createdAt: new Date(),
         remark: "Dữ liệu mô phỏng (Mock Data) dùng để xem trước giao diện in ấn.",
+        details: "Mô phỏng chi tiết nội dung sự cố hoặc nguyên nhân mất tài sản.",
         user: { name: "Tên nhân sự mẫu", department: { name: "Phòng ban mẫu" } },
         creator: { name: "Kỹ thuật viên mẫu", department: { name: "IT" } },
         asset: { assetCode: "AST-MOCK", name: "Thiết bị xem trước", serialNumber: "SN-MOCK" }
@@ -54,7 +59,7 @@ export default async function PrintProtocolPage({ params }: PrintPageProps) {
     }
   }
 
-  // Chuẩn hóa Enum cho Component giao diện
+  // Chuẩn hóa Enum cho Component giao diện (Thêm LOST)
   const protocolType = typeStr === "repair" ? "MAINTENANCE" : (typeStr.toUpperCase() as any);
 
   return (

@@ -1,14 +1,22 @@
+// src/app/(dashboard)/repairs/[ticketId]/page.tsx
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { ArrowLeft, AlertCircle } from "lucide-react";
+import { ArrowLeft, AlertCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import RepairStatusButton from "../RepairStatusButton"; 
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export default async function RepairTicketDetailPage({ params }: { params: Promise<{ ticketId: string }> }) {
   const resolvedParams = await params;
   const ticketId = resolvedParams.ticketId;
 
-  // 1. Lấy dữ liệu
+  // 1. Lấy thông tin session và kiểm tra quyền
+  const session = await getServerSession(authOptions);
+  const role = (session?.user as any)?.role || "USER";
+  const isUserRole = role === "USER";
+
+  // 2. Lấy dữ liệu
   const [ticket, locations] = await Promise.all([
     prisma.assetRepair.findUnique({
       where: { id: ticketId },
@@ -19,8 +27,7 @@ export default async function RepairTicketDetailPage({ params }: { params: Promi
 
   if (!ticket) redirect("/repairs");
 
-  // 2. FIX LỖI DECIMAL: Chuyển đổi toàn bộ dữ liệu phức tạp (Decimal, Date) thành Plain Object (String/Number)
-  // để Next.js có thể truyền xuống Client Component một cách an toàn.
+  // 3. FIX LỖI DECIMAL: Chuyển đổi toàn bộ dữ liệu phức tạp
   const serializedTicket = JSON.parse(JSON.stringify(ticket));
 
   const displayDescription = ticket.description || "Không có mô tả.";
@@ -56,7 +63,8 @@ export default async function RepairTicketDetailPage({ params }: { params: Promi
           </div>
         </div>
 
-        {ticket.status !== "COMPLETED" && (
+        {/* CỤM THAO TÁC KỸ THUẬT: Ẩn đi đối với tài khoản USER */}
+        {!isUserRole && ticket.status !== "COMPLETED" && (
           <div className="pt-4 border-t border-gray-100 space-y-3">
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Thao tác xử lý nghiệp vụ</h4>
             
@@ -65,7 +73,6 @@ export default async function RepairTicketDetailPage({ params }: { params: Promi
                 Sử dụng công cụ xử lý để điều phối thu hồi hoặc nghiệm thu thiết bị.
               </div>
               
-              {/* 3. FIX LỖI UI: Bỏ class transform/scale để Modal fixed không bị lỗi hiển thị */}
               <div>
                 <RepairStatusButton repair={serializedTicket} locations={locations} />
               </div>
@@ -73,6 +80,17 @@ export default async function RepairTicketDetailPage({ params }: { params: Promi
           </div>
         )}
 
+        {/* THÔNG BÁO CHO USER KHI TICKET ĐANG TRONG QUÁ TRÌNH XỬ LÝ */}
+        {isUserRole && ticket.status !== "COMPLETED" && (
+          <div className="pt-4 border-t border-gray-100">
+            <div className="flex gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 text-sm font-medium">
+              <Clock className="h-5 w-5 shrink-0" />
+              <p>Phiếu yêu cầu của bạn đang được bộ phận Kỹ thuật tiếp nhận và xử lý. Bạn có thể theo dõi tiến độ trực tiếp tại trang này.</p>
+            </div>
+          </div>
+        )}
+
+        {/* HIỂN THỊ KHI ĐÃ HOÀN THÀNH (Cho tất cả các role) */}
         {ticket.status === "COMPLETED" && (
           <div className="pt-4 border-t border-gray-100">
             <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 text-sm font-medium">

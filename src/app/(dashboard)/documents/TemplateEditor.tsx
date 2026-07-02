@@ -28,6 +28,18 @@ export default function TemplateEditor({ initialTemplates }: { initialTemplates:
     setIsSaving(false);
   };
 
+  // Hàm xác định màu nền của nút theo ID
+  const getButtonClass = (id: string, isSelected: boolean) => {
+    if (!isSelected) return "text-gray-600 hover:bg-gray-50 border border-transparent";
+    switch(id) {
+      case "HANDOVER": return "bg-blue-50 text-samsung font-bold border border-blue-100";
+      case "RECALL": return "bg-amber-50 text-amber-600 font-bold border border-amber-100";
+      case "MAINTENANCE": return "bg-purple-50 text-purple-600 font-bold border border-purple-100";
+      case "LOST": return "bg-red-50 text-red-600 font-bold border border-red-100";
+      default: return "bg-gray-100 text-gray-800 font-bold border border-gray-200";
+    }
+  };
+
   if (!activeTemplate) return null;
 
   return (
@@ -42,7 +54,7 @@ export default function TemplateEditor({ initialTemplates }: { initialTemplates:
               <button
                 key={t.id}
                 onClick={() => setSelectedId(t.id)}
-                className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition ${selectedId === t.id ? "bg-blue-50 text-samsung font-bold border border-blue-100" : "text-gray-600 hover:bg-gray-50 border border-transparent"}`}
+                className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition ${getButtonClass(t.id, selectedId === t.id)}`}
               >
                 {t.name}
               </button>

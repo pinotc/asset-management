@@ -9,7 +9,6 @@ export default withAuth(
     const role = token?.role as string;
 
     // 1. Phân quyền Tuyệt đối: CHỈ ADMIN
-    // ĐÃ XÓA "/settings" khỏi danh sách này để User thường có thể truy cập
     const adminRoutes = ["/admin"];
     if (adminRoutes.some(r => path.startsWith(r)) && role !== "ADMIN") {
       return NextResponse.rewrite(new URL("/unauthorized", req.url));
@@ -27,19 +26,28 @@ export default withAuth(
       return NextResponse.rewrite(new URL("/unauthorized", req.url));
     }
 
-    // 4. Phân quyền Vận hành: ADMIN, MANAGER, TECHNICIAN
-    const operationRoutes = ["/assignments", "/recalls", "/audit", "/documents"];
+    // 4. Phân quyền Vận hành & Quản lý Kho: ADMIN, MANAGER, TECHNICIAN
+    // Đã bổ sung "/assets" và "/timeline" vào đây để chặn USER thường truy cập
+    const operationRoutes = ["/assignments", "/recalls", "/audit", "/documents", "/assets", "/timeline"];
     if (operationRoutes.some(r => path.startsWith(r)) && !["ADMIN", "MANAGER", "TECHNICIAN"].includes(role)) {
       return NextResponse.rewrite(new URL("/unauthorized", req.url));
     }
 
-    // Route /settings cho phép mọi role đã đăng nhập truy cập
-    // (Bên trong SettingsClient.tsx đã có logic ẩn/hiện tab dựa trên role)
-    if (path.startsWith("/settings")) {
+    // 5. Chặn USER vào trang danh sách sửa chữa tổng (/repairs)
+    // Dùng path === "/repairs" để khóa đúng trang danh sách, 
+    // không dùng startsWith để USER vẫn có thể vào "/repairs/new" hoặc "/repairs/[id]"
+    // HÃY XÓA HOẶC COMMENT ĐOẠN NÀY LẠI ĐỂ MỞ KHÓA CHO USER
+    /* if (path === "/repairs" && role === "USER") {
+      return NextResponse.rewrite(new URL("/unauthorized", req.url));
+    } 
+    */
+
+    // Các route công cộng (cho phép mọi user đã đăng nhập):
+    if (path.startsWith("/settings") || path.startsWith("/search")) {
       return NextResponse.next();
     }
 
-    // Các route còn lại: /, /assets, /repairs, /timeline -> Mọi user đã đăng nhập đều được vào
+    // Route mặc định (Dashboard /): Mọi user đều được vào
     return NextResponse.next();
   },
   {

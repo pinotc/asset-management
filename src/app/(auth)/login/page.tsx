@@ -29,7 +29,7 @@ export default function LoginPage() {
       setError("Email hoặc mật khẩu không chính xác!");
       setIsLoading(false);
     } else {
-      router.push("/assets"); // Chuyển hướng vào Dashboard nếu thành công
+      router.push("/"); // Chuyển hướng vào Dashboard nếu thành công
       router.refresh(); // Làm mới state của Next.js
     }
   };

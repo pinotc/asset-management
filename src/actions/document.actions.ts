@@ -50,12 +50,29 @@ export async function getDocumentDataCenter() {
       orderBy: { createdAt: "desc" }
     });
 
+    // 4. LẤY DỮ LIỆU PHỤC VỤ BIÊN BẢN BÁO MẤT TÀI SẢN (Dựa vào AssetLog)
+    const lostAssets = await prisma.assetLog.findMany({
+      where: {
+        action: "ASSET_LOST"
+      },
+      include: {
+        asset: {
+          select: { assetCode: true, name: true, serialNumber: true, model: true }
+        },
+        user: {
+          select: { name: true, department: { select: { name: true } } }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
     return {
       success: true,
       data: {
         handovers,
         recalls,
-        repairs
+        repairs,
+        lostAssets // Bổ sung dữ liệu báo mất vào luồng trả về
       }
     };
   } catch (error: any) {

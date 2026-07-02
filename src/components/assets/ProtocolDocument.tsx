@@ -2,9 +2,9 @@
 "use client";
 
 import { useState } from "react";
-import { Printer, ArrowRightLeft, Undo2, Wrench } from "lucide-react";
+import { Printer, ArrowRightLeft, Undo2, Wrench, FileQuestion } from "lucide-react";
 
-export type ProtocolType = "HANDOVER" | "RECALL" | "MAINTENANCE";
+export type ProtocolType = "HANDOVER" | "RECALL" | "MAINTENANCE" | "LOST";
 
 interface ProtocolDocumentProps {
   type: ProtocolType;
@@ -18,6 +18,7 @@ export default function ProtocolDocument({ type, recordId = "NEW", templateData,
     HANDOVER: <ArrowRightLeft className="h-5 w-5" />,
     RECALL: <Undo2 className="h-5 w-5" />,
     MAINTENANCE: <Wrench className="h-5 w-5" />,
+    LOST: <FileQuestion className="h-5 w-5" />, // Bổ sung icon cho báo mất
   };
 
   const companyName = templateData?.companyName || "CÔNG TY TNHH DAEHA CABLE VINA";
@@ -43,9 +44,10 @@ export default function ProtocolDocument({ type, recordId = "NEW", templateData,
     assetId: dbRecord?.asset?.assetCode || "AST-UNKNOWN",
     assetName: dbRecord?.asset?.name || "N/A",
     serial: dbRecord?.asset?.serialNumber || "N/A",
-    condition: dbRecord?.remark || dbRecord?.description || "Thiết bị hoạt động bình thường theo tiêu chuẩn nội bộ.",
+    // Ưu tiên lấy dbRecord.details cho log Báo Mất, sau đó mới đến remark/description
+    condition: dbRecord?.details || dbRecord?.remark || dbRecord?.description || "Thiết bị hoạt động bình thường theo tiêu chuẩn nội bộ.",
     date: formattedDate,
-    location: targetLocation // BỔ SUNG ĐỊA ĐIỂM VÀO STATE ĐỂ QUẢN LÝ
+    location: targetLocation
   });
 
   return (
@@ -98,7 +100,6 @@ export default function ProtocolDocument({ type, recordId = "NEW", templateData,
               className="mx-1 border-b border-dashed border-gray-400 outline-none font-bold text-samsung print:text-black print:border-none bg-transparent" 
             />
             , tại 
-            {/* CHUYỂN ĐỔI CHỮ TĨNH THÀNH Ô INPUT ĐỘNG */}
             <input 
               type="text" 
               value={formData.location} 
@@ -149,7 +150,7 @@ export default function ProtocolDocument({ type, recordId = "NEW", templateData,
 
           <div className="space-y-3">
             <div>
-              <label className="font-bold text-xs underline block text-gray-700">Tình trạng nghiệm thu thực tế:</label>
+              <label className="font-bold text-xs underline block text-gray-700">Tình trạng / Nội dung ghi nhận thực tế:</label>
               <textarea value={formData.condition} onChange={e => setFormData({...formData, condition: e.target.value})} className="w-full h-16 mt-1 p-2 border rounded outline-none focus:ring-1 focus:ring-samsung text-xs bg-transparent print:border-none print:p-0 print:h-auto resize-none" />
             </div>
           </div>
@@ -167,7 +168,7 @@ export default function ProtocolDocument({ type, recordId = "NEW", templateData,
           </div>
           <div>
             <h4 className="font-bold text-xs uppercase">{partyBLabel}</h4>
-            <p className="text-[11px] text-gray-400 italic mt-0.5">(Ký, xác nhận nhận thiết bị)</p>
+            <p className="text-[11px] text-gray-400 italic mt-0.5">(Ký, xác nhận)</p>
             <div className="h-20"></div>
             <p className="font-bold text-gray-800 text-xs uppercase">{formData.partyBName}</p>
           </div>
