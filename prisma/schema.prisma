@@ -68,6 +68,7 @@ model Department {
   assets    Asset[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  consumableTransactions ConsumableTransaction[]
 }
 
 model AssetCategory {
@@ -228,4 +229,50 @@ model FormTemplate {
   legalTerms      String   // Điều khoản pháp lý cuối biên bản
   footerText      String   // Chữ mờ dưới chân trang
   updatedAt       DateTime @updatedAt
+}
+
+model Consumable {
+  id               String   @id @default(cuid())
+  name             String   // VD: Giấy in tem MES 100x150
+  unit             String   // Đơn vị tính (Cuộn, Thùng, Cặp...)
+  currentStock     Int      @default(0) // Tồn kho hiện tại
+  minStockLevel    Int      @default(10) // Mức tồn kho tối thiểu cảnh báo
+  leadTimeDays     Int      @default(7)  // Thời gian chờ từ lúc đặt mua đến lúc nhận hàng
+
+  // CÁC TRƯỜNG DỮ LIỆU PHỤC VỤ DỰ BÁO TỰ ĐỘNG
+  avgDailyUsage    Float?   // Tốc độ tiêu hao trung bình (đơn vị/ngày)
+  estimatedOutDate DateTime? // Ngày dự kiến cạn kiệt tồn kho
+  nextReorderDate  DateTime? // Ngày dự kiến phải trình yêu cầu mua hàng
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  transactions     ConsumableTransaction[]
+}
+
+enum TransactionType {
+  PURCHASE_REQUEST // Yêu cầu mua hàng
+  RECEIVED         // Nhập kho (Nhận hàng)
+  ALLOCATED        // Xuất kho (Cấp phát)
+}
+
+model ConsumableTransaction {
+  id             String          @id @default(cuid())
+  consumableId   String
+  consumable     Consumable      @relation(fields: [consumableId], references: [id])
+  
+  type           TransactionType
+  quantity       Int             // Số lượng (+ cho RECEIVED, - cho ALLOCATED)
+  transactionDate DateTime       @default(now())
+  
+  // Dành riêng cho Cấp phát (ALLOCATED)
+  departmentId   String?
+  department     Department?     @relation(fields: [departmentId], references: [id])
+  receiverName   String?         // Người nhận cụ thể của bộ phận đó
+  
+  // Dành riêng cho Yêu cầu mua hàng (PURCHASE_REQUEST)
+  expectedDate   DateTime?       // Ngày kỳ vọng hàng về
+  
+  notes          String?         // Ghi chú thêm
+  createdAt      DateTime        @default(now())
 }

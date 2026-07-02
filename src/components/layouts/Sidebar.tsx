@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Monitor, ArrowRightLeft, History,
   Undo2, ClipboardCheck, Wrench, Activity, Tags,
   MapPin, ShieldCheck, FileText, BarChart3,
-  Users, Building2, Settings, LogOut
+  Users, Building2, Settings, LogOut,Package
 } from "lucide-react";
 
 // ============================================================================
@@ -34,6 +34,7 @@ const MENU_GROUPS = [
     items: [
       // Chỉ Admin, Quản lý và Kỹ thuật viên mới được vào kho
       { name: "Kho Thiết bị", icon: Monitor, href: "/assets", roles: TECH_AND_UP },
+      { name: "Kho Vật Tư", icon: Package, href: "/consumables", roles: TECH_AND_UP },
       { name: "Danh mục", icon: Tags, href: "/categories", roles: TECH_AND_UP },
       { name: "Vị trí", icon: MapPin, href: "/locations", roles: TECH_AND_UP }, 
       { name: "Lịch sử thiết bị", icon: History, href: "/timeline", roles: TECH_AND_UP },
